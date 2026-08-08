@@ -23,11 +23,19 @@ def print_candidates(model, candidates, chosen_id):
         print(f"    {prob:6.3f}  {text!r}{marker}")
 
 
+def print_prompt_tokens(model, prompt_tokens):
+    print("  prompt tokens:")
+    for tid in prompt_tokens:
+        piece = model.detokenize([tid], special=True).decode("utf-8", errors="replace")
+        print(f"    {tid}: {piece!r}")
+
+
 def run_turn(model, context_tokens, user_text, rng):
     prompt = f"<|im_start|>user\n{user_text}<|im_end|>\n<|im_start|>assistant\n"
     prompt_tokens = model.tokenize(
         prompt.encode("utf-8"), add_bos=(len(context_tokens) == 0), special=True
     )
+    print_prompt_tokens(model, prompt_tokens)
     context_tokens = truncate_context(
         context_tokens + prompt_tokens,
         MAX_CONTEXT_TOKENS - MAX_NEW_TOKENS - CLOSER_TOKEN_MARGIN,
@@ -42,7 +50,7 @@ def run_turn(model, context_tokens, user_text, rng):
 
     try:
         for _ in range(MAX_NEW_TOKENS):
-            logits = np.array(model.eval_logits[-1], dtype=np.float64)
+            logits = np.array(model.scores[model.n_tokens - 1, :], dtype=np.float64)
             token_id, candidates = sample_token(logits, TEMPERATURE, TOP_P, rng)
             print_candidates(model, candidates, token_id)
 
@@ -63,7 +71,7 @@ def run_turn(model, context_tokens, user_text, rng):
     response_text = model.detokenize(generated_tokens, special=False).decode(
         "utf-8", errors="ignore"
     )
-    return context_tokens, response_text, interrupted
+    return context_tokens, response_text, interrupted, len(generated_tokens)
 
 
 def main():
@@ -84,7 +92,7 @@ def main():
             continue
 
         start = time.perf_counter()
-        context_tokens, response_text, interrupted = run_turn(
+        context_tokens, response_text, interrupted, num_generated = run_turn(
             model, context_tokens, user_text, rng
         )
         elapsed = time.perf_counter() - start
@@ -92,7 +100,7 @@ def main():
         if interrupted:
             print(f"\n[interrupted] Partial response: {response_text}\n")
         else:
-            tokens_per_sec = len(response_text.split()) / elapsed if elapsed > 0 else 0.0
+            tokens_per_sec = num_generated / elapsed if elapsed > 0 else 0.0
             print(f"\nAssistant: {response_text}")
             print(f"[{elapsed:.2f}s, ~{tokens_per_sec:.1f} tok/s]\n")
 

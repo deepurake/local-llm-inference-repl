@@ -35,4 +35,6 @@ def sample_token(
     filtered = top_p_filter(probs, top_p)
     candidates = top_candidates(filtered, k=5)
     token_id = int(rng.choice(len(filtered), p=filtered))
+    if token_id not in {c[0] for c in candidates}:
+        candidates.append((token_id, float(filtered[token_id])))
     return token_id, candidates
