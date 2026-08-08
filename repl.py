@@ -27,7 +27,9 @@ def run_turn(model, context_tokens, user_text, rng):
     prompt_tokens = model.tokenize(
         prompt.encode("utf-8"), add_bos=(len(context_tokens) == 0), special=True
     )
-    context_tokens = truncate_context(context_tokens + prompt_tokens, MAX_CONTEXT_TOKENS)
+    context_tokens = truncate_context(
+        context_tokens + prompt_tokens, MAX_CONTEXT_TOKENS - MAX_NEW_TOKENS
+    )
 
     model.reset()
     model.eval(context_tokens)
