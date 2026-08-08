@@ -11,6 +11,9 @@ setup: setup-model
     mkdir -p certs
     test -f certs/server.crt || openssl req -x509 -newkey rsa:2048 -nodes -keyout certs/server.key -out certs/server.crt -days 365 -subj "/CN=localhost"
 
+gen-proto:
+    .venv/bin/python -m grpc_tools.protoc -Iproto --python_out=. --grpc_python_out=. proto/inference.proto
+
 repl:
     .venv/bin/python repl.py
 

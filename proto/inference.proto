@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package inference;
+
+service Inference {
+  rpc Generate(GenerateRequest) returns (stream GenerateEvent);
+}
+
+message GenerateRequest {
+  repeated int32 context_tokens = 1;
+  int32 max_new_tokens = 2;
+  float temperature = 3;
+  float top_p = 4;
+}
+
+message Candidate {
+  int32 token_id = 1;
+  string text = 2;
+  float probability = 3;
+}
+
+message GenerateEvent {
+  int32 token_id = 1;
+  string text = 2;
+  repeated Candidate candidates = 3;
+  bool is_eos = 4;
+}
