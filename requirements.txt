@@ -1,3 +1,5 @@
 llama-cpp-python
 numpy
 pytest
+grpcio
+grpcio-tools
