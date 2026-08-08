@@ -17,5 +17,8 @@ gen-proto:
 repl:
     .venv/bin/python repl.py
 
+serve:
+    .venv/bin/python inference_server.py
+
 test:
     .venv/bin/pytest -v
