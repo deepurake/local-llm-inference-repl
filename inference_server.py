@@ -18,6 +18,9 @@ class InferenceServicer(inference_pb2_grpc.InferenceServicer):
     def Generate(self, request, context):
         context_tokens = list(request.context_tokens)
 
+        if not context_tokens:
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "context_tokens must not be empty")
+
         if len(context_tokens) + request.max_new_tokens > config.MAX_CONTEXT_TOKENS:
             context.abort(
                 grpc.StatusCode.RESOURCE_EXHAUSTED,
