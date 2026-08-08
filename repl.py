@@ -10,6 +10,7 @@ from sampling import sample_token
 MODEL_PATH = Path(__file__).resolve().parent / "models" / "Qwen3.5-0.8B-Q4_K_M.gguf"
 MAX_CONTEXT_TOKENS = 4096
 MAX_NEW_TOKENS = 256
+CLOSER_TOKEN_MARGIN = 8  # headroom for the ChatML closer ("<|im_end|>\n"), which is ~2 tokens
 TEMPERATURE = 0.8
 TOP_P = 0.9
 
@@ -28,7 +29,8 @@ def run_turn(model, context_tokens, user_text, rng):
         prompt.encode("utf-8"), add_bos=(len(context_tokens) == 0), special=True
     )
     context_tokens = truncate_context(
-        context_tokens + prompt_tokens, MAX_CONTEXT_TOKENS - MAX_NEW_TOKENS
+        context_tokens + prompt_tokens,
+        MAX_CONTEXT_TOKENS - MAX_NEW_TOKENS - CLOSER_TOKEN_MARGIN,
     )
 
     model.reset()
