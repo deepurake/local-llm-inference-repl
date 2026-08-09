@@ -10,6 +10,10 @@ from context import truncate_context
 
 
 def load_tokenizer():
+    if not config.MODEL_PATH.exists():
+        raise FileNotFoundError(
+            f"Model file not found at {config.MODEL_PATH}. Run `just setup` to download it."
+        )
     return Llama(model_path=str(config.MODEL_PATH), vocab_only=True, verbose=False)
 
 
@@ -31,6 +35,7 @@ def print_prompt_tokens(tokenizer, prompt_tokens):
 
 
 def run_turn(stub, tokenizer, context_tokens, user_text):
+    original_context_tokens = list(context_tokens)
     prompt = f"<|im_start|>user\n{user_text}<|im_end|>\n<|im_start|>assistant\n"
     prompt_tokens = tokenizer.tokenize(
         prompt.encode("utf-8"), add_bos=(len(context_tokens) == 0), special=True
@@ -71,7 +76,7 @@ def run_turn(stub, tokenizer, context_tokens, user_text):
                 f"{config.GRPC_HOST}:{config.GRPC_PORT} — is `just serve` running? "
                 f"({e.code()}: {e.details()})\n"
             )
-        return context_tokens, "", False, 0
+        return original_context_tokens, "", False, 0
 
     if not context_tokens or context_tokens[-1] != eos_id:
         closer = tokenizer.tokenize(b"<|im_end|>\n", add_bos=False, special=True)
