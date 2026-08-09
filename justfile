@@ -17,8 +17,21 @@ gen-proto:
 repl:
     .venv/bin/python repl.py
 
+repl-service:
+    .venv/bin/uvicorn repl:app --reload --host 0.0.0.0 --port 8000
+
 serve:
     .venv/bin/python inference_server.py
 
 test:
     .venv/bin/pytest -v
+
+compose-up:
+    docker compose up --build
+
+minikube-deploy:
+    eval $(minikube docker-env) && docker build -t repl:local .
+    kubectl create configmap repl-certs --from-file=certs/server.crt -o yaml --dry-run=client | kubectl apply -f -
+    kubectl apply -f k8s/deployment.yaml -f k8s/service.yaml
+    kubectl rollout restart deployment/repl
+    kubectl rollout status deployment/repl

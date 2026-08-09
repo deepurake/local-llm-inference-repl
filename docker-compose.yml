@@ -1,0 +1,13 @@
+services:
+  repl:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - INFERENCE_SERVER_HOST=host.docker.internal
+      - INFERENCE_SERVER_PORT=50051
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./models:/app/models:ro
+      - ./certs:/app/certs:ro

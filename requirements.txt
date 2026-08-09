@@ -3,3 +3,7 @@ numpy
 pytest
 grpcio
 grpcio-tools
+fastapi
+uvicorn[standard]
+httpx
+anyio

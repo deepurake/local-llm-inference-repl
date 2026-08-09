@@ -1,12 +1,19 @@
+import os
 import time
+from contextlib import asynccontextmanager
 
+import anyio
 import grpc
 import inference_pb2
 import inference_pb2_grpc
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from llama_cpp import Llama
 
 import config
 from context import truncate_context
+
+INFERENCE_HOST = os.environ.get("INFERENCE_SERVER_HOST", config.GRPC_HOST)
+INFERENCE_PORT = int(os.environ.get("INFERENCE_SERVER_PORT", config.GRPC_PORT))
 
 
 def load_tokenizer():
@@ -15,6 +22,14 @@ def load_tokenizer():
             f"Model file not found at {config.MODEL_PATH}. Run `just setup` to download it."
         )
     return Llama(model_path=str(config.MODEL_PATH), vocab_only=True, verbose=False)
+
+
+def create_stub():
+    with open(config.CERT_PATH, "rb") as f:
+        trusted_certs = f.read()
+    credentials = grpc.ssl_channel_credentials(root_certificates=trusted_certs)
+    channel = grpc.secure_channel(f"{INFERENCE_HOST}:{INFERENCE_PORT}", credentials)
+    return inference_pb2_grpc.InferenceStub(channel)
 
 
 def print_candidates(tokenizer, candidates, chosen_id):
@@ -75,7 +90,7 @@ def run_turn(stub, tokenizer, context_tokens, user_text):
         else:
             print(
                 f"\n[error] Could not reach inference server at "
-                f"{config.GRPC_HOST}:{config.GRPC_PORT} — is `just serve` running? "
+                f"{INFERENCE_HOST}:{INFERENCE_PORT} — is `just serve` running? "
                 f"({e.code()}: {e.details()})\n"
             )
         return original_context_tokens, "", False, 0
@@ -90,18 +105,62 @@ def run_turn(stub, tokenizer, context_tokens, user_text):
     return context_tokens, response_text, interrupted, len(generated_tokens)
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    if not hasattr(app.state, "stub"):
+        app.state.stub = create_stub()
+    if not hasattr(app.state, "tokenizer"):
+        app.state.tokenizer = load_tokenizer()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
+
+
+@app.websocket("/ws/chat")
+async def chat(websocket: WebSocket) -> None:
+    await websocket.accept()
+    context_tokens: list[int] = []
+    stub = websocket.app.state.stub
+    tokenizer = websocket.app.state.tokenizer
+
+    while True:
+        try:
+            user_text = await websocket.receive_text()
+        except WebSocketDisconnect:
+            return
+
+        if not user_text.strip():
+            continue
+
+        start = time.perf_counter()
+        context_tokens, response_text, interrupted, num_generated = await anyio.to_thread.run_sync(
+            run_turn, stub, tokenizer, context_tokens, user_text
+        )
+        elapsed = time.perf_counter() - start
+        tokens_per_sec = num_generated / elapsed if elapsed > 0 else 0.0
+
+        try:
+            await websocket.send_json(
+                {
+                    "type": "response",
+                    "text": response_text,
+                    "interrupted": interrupted,
+                    "tokens_generated": num_generated,
+                    "elapsed_s": elapsed,
+                    "tokens_per_sec": tokens_per_sec,
+                }
+            )
+        except WebSocketDisconnect:
+            return
+
+
 def main():
     tokenizer = load_tokenizer()
-
-    with open(config.CERT_PATH, "rb") as f:
-        trusted_certs = f.read()
-    credentials = grpc.ssl_channel_credentials(root_certificates=trusted_certs)
-    channel = grpc.secure_channel(f"{config.GRPC_HOST}:{config.GRPC_PORT}", credentials)
-    stub = inference_pb2_grpc.InferenceStub(channel)
-
+    stub = create_stub()
     context_tokens: list[int] = []
 
-    print(f"Connected to inference server at {config.GRPC_HOST}:{config.GRPC_PORT}")
+    print(f"Connected to inference server at {INFERENCE_HOST}:{INFERENCE_PORT}")
 
     while True:
         try:
