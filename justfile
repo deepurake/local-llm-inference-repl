@@ -25,3 +25,6 @@ serve:
 
 test:
     .venv/bin/pytest -v
+
+compose-up:
+    docker compose up --build
