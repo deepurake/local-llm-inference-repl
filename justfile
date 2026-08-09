@@ -17,6 +17,9 @@ gen-proto:
 repl:
     .venv/bin/python repl.py
 
+repl-service:
+    .venv/bin/uvicorn repl:app --reload --host 0.0.0.0 --port 8000
+
 serve:
     .venv/bin/python inference_server.py
 
