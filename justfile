@@ -28,3 +28,8 @@ test:
 
 compose-up:
     docker compose up --build
+
+minikube-deploy:
+    eval $(minikube docker-env) && docker build -t repl:local .
+    kubectl create configmap repl-certs --from-file=certs/server.crt -o yaml --dry-run=client | kubectl apply -f -
+    kubectl apply -f k8s/deployment.yaml -f k8s/service.yaml

@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: repl
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: repl
+  template:
+    metadata:
+      labels:
+        app: repl
+    spec:
+      containers:
+        - name: repl
+          image: repl:local
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8000
+          env:
+            - name: INFERENCE_SERVER_HOST
+              value: host.minikube.internal
+            - name: INFERENCE_SERVER_PORT
+              value: "50051"
+          volumeMounts:
+            - name: certs
+              mountPath: /app/certs
+              readOnly: true
+      volumes:
+        - name: certs
+          configMap:
+            name: repl-certs
