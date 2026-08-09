@@ -70,7 +70,8 @@ class InferenceServicer(inference_pb2_grpc.InferenceServicer):
 
 
 def create_server(port=None, model_path=None):
-    port = port or config.GRPC_PORT
+    if port is None:
+        port = config.GRPC_PORT
     model_path = model_path or config.MODEL_PATH
 
     model = load_model(model_path, n_ctx=config.MAX_CONTEXT_TOKENS)
@@ -84,7 +85,11 @@ def create_server(port=None, model_path=None):
         certificate_chain = f.read()
     server_credentials = grpc.ssl_server_credentials([(private_key, certificate_chain)])
 
-    server.add_secure_port(f"[::]:{port}", server_credentials)
+    bound_port = server.add_secure_port(f"[::]:{port}", server_credentials)
+    if bound_port == 0:
+        raise RuntimeError(
+            f"Failed to bind port {port} — is another `just serve` already running?"
+        )
     return server
 
 

@@ -54,7 +54,7 @@ def run_turn(stub, tokenizer, context_tokens, user_text):
     )
 
     generated_tokens = []
-    eos_id = tokenizer.token_eos()
+    saw_eos = False
     interrupted = False
     call = stub.Generate(request)
 
@@ -62,7 +62,9 @@ def run_turn(stub, tokenizer, context_tokens, user_text):
         for event in call:
             print_candidates(tokenizer, event.candidates, event.token_id)
             context_tokens.append(event.token_id)
-            if not event.is_eos:
+            if event.is_eos:
+                saw_eos = True
+            else:
                 generated_tokens.append(event.token_id)
     except KeyboardInterrupt:
         call.cancel()
@@ -78,7 +80,7 @@ def run_turn(stub, tokenizer, context_tokens, user_text):
             )
         return original_context_tokens, "", False, 0
 
-    if not context_tokens or context_tokens[-1] != eos_id:
+    if not saw_eos:
         closer = tokenizer.tokenize(b"<|im_end|>\n", add_bos=False, special=True)
         context_tokens.extend(closer)
 
