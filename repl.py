@@ -1,3 +1,4 @@
+import argparse
 import time
 
 import grpc
@@ -7,14 +8,15 @@ from llama_cpp import Llama
 
 import config
 from context import truncate_context
+from model_registry import DEFAULT_MODEL_NAME, resolve_model_path
 
 
-def load_tokenizer():
-    if not config.MODEL_PATH.exists():
+def load_tokenizer(model_path):
+    if not model_path.exists():
         raise FileNotFoundError(
-            f"Model file not found at {config.MODEL_PATH}. Run `just setup` to download it."
+            f"Model file not found at {model_path}. Run `just setup` to download it."
         )
-    return Llama(model_path=str(config.MODEL_PATH), vocab_only=True, verbose=False)
+    return Llama(model_path=str(model_path), vocab_only=True, verbose=False)
 
 
 def print_candidates(tokenizer, candidates, chosen_id):
@@ -91,7 +93,19 @@ def run_turn(stub, tokenizer, context_tokens, user_text):
 
 
 def main():
-    tokenizer = load_tokenizer()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--model",
+        default=DEFAULT_MODEL_NAME,
+        help=(
+            f"Model registry name to use (default: {DEFAULT_MODEL_NAME}). "
+            "Must match the model the inference server was started with."
+        ),
+    )
+    args = parser.parse_args()
+
+    model_path = resolve_model_path(args.model)
+    tokenizer = load_tokenizer(model_path)
 
     with open(config.CERT_PATH, "rb") as f:
         trusted_certs = f.read()
