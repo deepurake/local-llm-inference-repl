@@ -1,3 +1,4 @@
+import argparse
 from concurrent import futures
 
 import grpc
@@ -7,6 +8,7 @@ import config
 import inference_pb2
 import inference_pb2_grpc
 from model import load_model
+from model_registry import DEFAULT_MODEL_NAME, resolve_model_path
 from sampling import sample_token
 
 
@@ -94,9 +96,18 @@ def create_server(port=None, model_path=None):
 
 
 def serve():
-    server = create_server()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--model",
+        default=DEFAULT_MODEL_NAME,
+        help=f"Model registry name to serve (default: {DEFAULT_MODEL_NAME})",
+    )
+    args = parser.parse_args()
+
+    model_path = resolve_model_path(args.model)
+    server = create_server(model_path=model_path)
     server.start()
-    print(f"Inference server listening on port {config.GRPC_PORT} (TLS)")
+    print(f"Inference server listening on port {config.GRPC_PORT} (TLS) — model={args.model}")
     server.wait_for_termination()
 
 
